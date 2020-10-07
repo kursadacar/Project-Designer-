@@ -1,0 +1,47 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d4e6ed05a9d7df04d9e1c701517e31f7, type: 3}
+  m_Name: DefaultEditorSettings
+  m_EditorClassIdentifier: 
+  optionsPanelWidth: 250
+  gridLineColor: {r: 0.5, g: 0.5, b: 0.5, a: 1}
+  gridHighlightColor: {r: 1, g: 1, b: 1, a: 1}
+  optionsPanelColor: {r: 0.8117647, g: 0.8117647, b: 0.8117647, a: 1}
+  maxGridSize: 200
+  minGridSize: 50
+  nodeTexture: {fileID: 2800000, guid: 611c930b14a04724f83d6c765c7d8879, type: 3}
+  lineTexture: {fileID: 2800000, guid: bda0a56c39d24cf48a3027b70245004e, type: 3}
+  gradientTexture: {fileID: 2800000, guid: 2ede33e875c48ad4ba4108fc3957557c, type: 3}
+  IOPointTexture: {fileID: 2800000, guid: 6cacfb9c8e8abd84f8850ac40c9f2b1f, type: 3}
+  nodeOutlineTexture: {fileID: 2800000, guid: b90852130d5af4a4daf913f361b44b15, type: 3}
+  colorWheelTexture: {fileID: 2800000, guid: 4be2ea8ee2f37bd44a38eff2e1e7d877, type: 3}
+  selectionRectColor: {r: 0.24230155, g: 0.7847805, b: 0.9339623, a: 0.61960787}
+  inheritanceConnectionColor: {r: 1, g: 1, b: 1, a: 1}
+  interfaceConnectionColor: {r: 0.9245283, g: 0.78176326, b: 0.36196154, a: 1}
+  groupColor: {r: 1, g: 0.54901963, b: 0.2, a: 0.9019608}
+  IOPointColor: {r: 1, g: 1, b: 1, a: 1}
+  nodeShadowColor: {r: 0, g: 0, b: 0, a: 0.2}
+  groupHeaderColor: {r: 1, g: 0.42352942, b: 0, a: 1}
+  connectionWidth: 4
+  nodeColors:
+  - {fileID: 11400000, guid: d0812fc943a6c944c9cf9f4f472ed257, type: 2}
+  - {fileID: 11400000, guid: b7d3c9ebf7647f340ab0db0722181f22, type: 2}
+  - {fileID: 11400000, guid: 58f5dcd15c5d246458a16522bb826e9f, type: 2}
+  - {fileID: 11400000, guid: a00abcb3e593fba449ae5f29add360b0, type: 2}
+  - {fileID: 11400000, guid: 01595c4415ed5d54480149dd80e7db73, type: 2}
+  - {fileID: 11400000, guid: 59daa8077443a8b4599350ea85ed8c51, type: 2}
+  - {fileID: 11400000, guid: aaf9dda5e3b8cb14ca8369376ad13c51, type: 2}
+  - {fileID: 11400000, guid: c2d39e8d3c461934489b48ec7a8ca3a9, type: 2}
+  - {fileID: 11400000, guid: a62aef880c735cc4a922115bd9f37336, type: 2}
+  - {fileID: 11400000, guid: 02858850989ea9e41ac93399c7ae57ec, type: 2}
+  BezierTangent: {x: 50, y: 0}
+  _nodeElementHeight: 21
