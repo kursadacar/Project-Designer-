@@ -8,34 +8,6 @@ namespace Designer
 {
     public abstract class NodeElement
     {
-        private static GUIStyle __popupStyle;
-        private static GUIStyle popupStyle
-        {
-            get
-            {
-                if (__popupStyle == null)
-                {
-                    __popupStyle = new GUIStyle(EditorStyles.popup);
-                    __popupStyle.alignment = TextAnchor.MiddleLeft;
-                }
-                return __popupStyle;
-            }
-        }
-
-        private static GUIStyle __textFieldStyle;
-        private static GUIStyle textFieldStyle
-        {
-            get
-            {
-                if (__textFieldStyle == null)
-                {
-                    __textFieldStyle = new GUIStyle(EditorStyles.textField);
-                    __textFieldStyle.alignment = TextAnchor.MiddleLeft;
-                }
-                return __textFieldStyle;
-            }
-        }
-
         private static ElementNames _header;
         public static ElementNames Header
         {
@@ -83,12 +55,6 @@ namespace Designer
         internal abstract void DrawInternal(Rect position);
         public void Draw(Rect position)
         {
-            popupStyle.fixedHeight = DesignerUtility.EditorSettings.NodeElementHeight;
-            textFieldStyle.fixedHeight = DesignerUtility.EditorSettings.NodeElementHeight;
-
-            popupStyle.stretchWidth = true;
-            popupStyle.fixedWidth = 50f * EditorData.zoomRatio;
-
             float sliceWidth = position.width / 3f;
 
             firstComponentPosition = new Rect(0f, 0f, sliceWidth - componentOffset * 2f, position.height);
@@ -105,10 +71,10 @@ namespace Designer
                 GUILayout.BeginArea(position);
                 GUILayout.BeginHorizontal(GUILayout.Height(position.height));
 
-                var labelStyle = CustomStyles.GetCustomLabel(Color.white, 12, TextAnchor.MiddleLeft);
-                GUI.Label(firstComponentPosition, "Name", CustomStyles.GetCustomLabel(Color.black, 12, TextAnchor.MiddleCenter));
-                GUI.Label(secondComponentPosition, "Protection Level", CustomStyles.GetCustomLabel(Color.black, 12, TextAnchor.MiddleCenter));
-                GUI.Label(thirdComponentPosition, "Type", CustomStyles.GetCustomLabel(Color.black, 12, TextAnchor.MiddleCenter));
+                var labelStyle = StylePresets.GetCustomLabel(Color.white, 12, TextAnchor.MiddleLeft);
+                GUI.Label(firstComponentPosition, "Name", StylePresets.GetCustomLabel(Color.black, 12, TextAnchor.MiddleCenter));
+                GUI.Label(secondComponentPosition, "Protection Level", StylePresets.GetCustomLabel(Color.black, 12, TextAnchor.MiddleCenter));
+                GUI.Label(thirdComponentPosition, "Type", StylePresets.GetCustomLabel(Color.black, 12, TextAnchor.MiddleCenter));
                 GUILayout.EndHorizontal();
                 GUILayout.EndArea();
             }
@@ -121,11 +87,11 @@ namespace Designer
             {
                 GUILayout.BeginArea(position);
                 GUILayout.BeginHorizontal(GUILayout.Height(position.height));
-                var labelStyle = CustomStyles.GetCustomLabel(Color.white, 12, TextAnchor.MiddleLeft);
+                var labelStyle = StylePresets.GetCustomLabel(Color.white, 12, TextAnchor.MiddleLeft);
 
-                name = GUI.TextField(firstComponentPosition, name, CustomStyles.textField);
-                protectionLevel = (ProtectionLevel)EditorGUI.EnumPopup(secondComponentPosition, protectionLevel, CustomStyles.enumPopup);
-                primitiveType = (PrimitiveType)EditorGUI.EnumPopup(thirdComponentPosition, primitiveType, CustomStyles.enumPopup);
+                name = GUI.TextField(firstComponentPosition, name, StylePresets.textField);
+                protectionLevel = (ProtectionLevel)EditorGUI.EnumPopup(secondComponentPosition, protectionLevel, StylePresets.enumPopup);
+                primitiveType = (PrimitiveType)EditorGUI.EnumPopup(thirdComponentPosition, primitiveType, StylePresets.enumPopup);
                 GUILayout.EndHorizontal();
                 GUILayout.EndArea();
                 //protectionLevel = (ProtectionLevel)EditorGUILayout.EnumPopup(protectionLevel, popupStyle);

@@ -4,14 +4,16 @@ using System.Collections.Generic;
 
 namespace Designer
 {
-    public class Group
+    public class Group : GridElement
     {
+        public override Type type => Type.Group;
+
         private static readonly float offset = 12f;
-
-        public string name;
-
-        public Rect position { get; private set; }
-        public Rect screenPosition => new Rect(DesignerUtility.GetScreenPositionFromGridPoint(position.position), position.size * EditorData.zoomRatio);
+        static Vector4 headerBorderRadius = new Vector4(4f, 4f, 0f, 0f);
+        static Vector4 bodyBorderRadius = new Vector4(0f, 0f, 4f, 4f);
+        
+        static Vector4 headerBorderWidth = new Vector4(1f, 1f, 1f, 0f) * 2f;
+        static Vector4 bodyBorderWidth = new Vector4(1f, 1f, 1f, 1f) * 2f;
 
         private List<Node> _childNodes = new List<Node>();
         public IList<Node> childNodes
@@ -38,16 +40,26 @@ namespace Designer
             }
         }
 
-        public void Draw()
+        public Rect headerPosition { get; private set; }
+
+        public override void Draw()
         {
             //Debug.Log("Draw Group: " + screenPosition + "|" + position);
             RecalculatePosition();
-            var headerPosition = new Rect(screenPosition.position - Vector2.up * 25f * EditorData.zoomRatio, new Vector2(screenPosition.width, 25f * EditorData.zoomRatio));
-            Vector4 headerBorders = new Vector4(4f, 4f, 0f, 0f);
-            Vector4 bodyBorders = new Vector4(0f, 0f, 4f, 4f);
-            GUI.DrawTexture(headerPosition, Texture2D.whiteTexture, ScaleMode.StretchToFill, false, 0f, DesignerUtility.EditorSettings.groupHeaderColor, Vector4.zero, headerBorders * EditorData.zoomRatio);
-            name = GUI.TextField(headerPosition, name, CustomStyles.groupHeader);
-            GUI.DrawTexture(screenPosition, Texture2D.whiteTexture, ScaleMode.StretchToFill, false, 0f, DesignerUtility.EditorSettings.groupColor, Vector4.zero, bodyBorders * EditorData.zoomRatio);
+            headerPosition = new Rect(screenPosition.position - Vector2.up * 25f * EditorData.zoomRatio,new Vector2(screenPosition.width, 25f * EditorData.zoomRatio));
+
+            var headerTextPosition = new Rect(headerPosition);
+            headerTextPosition.position += Vector2.right * screenPosition.width * 2f / 5f;
+            headerTextPosition.width = screenPosition.width / 5f;
+
+            GUI.DrawTexture(headerPosition, Texture2D.whiteTexture, ScaleMode.StretchToFill, false, 0f, DesignerUtility.EditorSettings.groupHeaderColor, Vector4.zero, headerBorderRadius * EditorData.zoomRatio);
+            GUI.DrawTexture(headerTextPosition, Texture2D.whiteTexture, ScaleMode.StretchToFill, false, 0f, DesignerUtility.EditorSettings.groupHeaderTextFieldColor, 0f, 0f);
+            name = GUI.TextField(headerTextPosition, name, StylePresets.groupHeader);
+            GUI.DrawTexture(screenPosition, Texture2D.whiteTexture, ScaleMode.StretchToFill, false, 0f, DesignerUtility.EditorSettings.groupColor, Vector4.zero, bodyBorderRadius * EditorData.zoomRatio);
+
+            //Borders
+            GUI.DrawTexture(headerPosition, Texture2D.whiteTexture, ScaleMode.StretchToFill, false, 0f, Color.black, headerBorderWidth * EditorData.zoomRatio, headerBorderRadius * EditorData.zoomRatio);
+            GUI.DrawTexture(screenPosition, Texture2D.whiteTexture, ScaleMode.StretchToFill, false, 0f, Color.black, bodyBorderWidth * EditorData.zoomRatio, bodyBorderRadius * EditorData.zoomRatio);
         }
 
         /// <summary>

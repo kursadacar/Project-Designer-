@@ -13,25 +13,27 @@ MonoBehaviour:
   m_Name: DefaultEditorSettings
   m_EditorClassIdentifier: 
   optionsPanelWidth: 250
-  gridLineColor: {r: 0.5, g: 0.5, b: 0.5, a: 1}
-  gridHighlightColor: {r: 1, g: 1, b: 1, a: 1}
-  optionsPanelColor: {r: 0.8117647, g: 0.8117647, b: 0.8117647, a: 1}
   maxGridSize: 200
-  minGridSize: 50
+  minGridSize: 30
+  connectionWidth: 4
   nodeTexture: {fileID: 2800000, guid: 611c930b14a04724f83d6c765c7d8879, type: 3}
   lineTexture: {fileID: 2800000, guid: bda0a56c39d24cf48a3027b70245004e, type: 3}
   gradientTexture: {fileID: 2800000, guid: 2ede33e875c48ad4ba4108fc3957557c, type: 3}
   IOPointTexture: {fileID: 2800000, guid: 6cacfb9c8e8abd84f8850ac40c9f2b1f, type: 3}
   nodeOutlineTexture: {fileID: 2800000, guid: b90852130d5af4a4daf913f361b44b15, type: 3}
   colorWheelTexture: {fileID: 2800000, guid: 4be2ea8ee2f37bd44a38eff2e1e7d877, type: 3}
+  shadowTexture: {fileID: 2800000, guid: 7036f81402dedc84e8a7d598f78b9965, type: 3}
   selectionRectColor: {r: 0.24230155, g: 0.7847805, b: 0.9339623, a: 0.61960787}
   inheritanceConnectionColor: {r: 1, g: 1, b: 1, a: 1}
   interfaceConnectionColor: {r: 0.9245283, g: 0.78176326, b: 0.36196154, a: 1}
-  groupColor: {r: 1, g: 0.54901963, b: 0.2, a: 0.9019608}
+  groupColor: {r: 0, g: 0, b: 0, a: 0.4}
+  groupHeaderColor: {r: 0.2509804, g: 0.2509804, b: 0.2509804, a: 1}
+  groupHeaderTextFieldColor: {r: 0.8, g: 0.8, b: 0.8, a: 1}
   IOPointColor: {r: 1, g: 1, b: 1, a: 1}
   nodeShadowColor: {r: 0, g: 0, b: 0, a: 0.2}
-  groupHeaderColor: {r: 1, g: 0.42352942, b: 0, a: 1}
-  connectionWidth: 4
+  gridLineColor: {r: 0.5, g: 0.5, b: 0.5, a: 1}
+  gridHighlightColor: {r: 1, g: 1, b: 1, a: 1}
+  optionsPanelColor: {r: 0.8117647, g: 0.8117647, b: 0.8117647, a: 1}
   nodeColors:
   - {fileID: 11400000, guid: d0812fc943a6c944c9cf9f4f472ed257, type: 2}
   - {fileID: 11400000, guid: b7d3c9ebf7647f340ab0db0722181f22, type: 2}
@@ -43,5 +45,6 @@ MonoBehaviour:
   - {fileID: 11400000, guid: c2d39e8d3c461934489b48ec7a8ca3a9, type: 2}
   - {fileID: 11400000, guid: a62aef880c735cc4a922115bd9f37336, type: 2}
   - {fileID: 11400000, guid: 02858850989ea9e41ac93399c7ae57ec, type: 2}
+  interfaceColor: {fileID: 0}
   BezierTangent: {x: 50, y: 0}
   _nodeElementHeight: 21

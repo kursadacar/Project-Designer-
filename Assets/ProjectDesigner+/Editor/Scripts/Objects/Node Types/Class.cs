@@ -14,6 +14,17 @@ namespace Designer
             {
 
             }
+
+            public override void Draw()
+            {
+                base.Draw();
+
+                //Inherit color
+                InheritColor();
+
+                //Draw IO Points
+                DrawIOPoints();
+            }
         }
     }
 }

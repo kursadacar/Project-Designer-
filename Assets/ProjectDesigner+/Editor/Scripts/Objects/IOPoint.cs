@@ -6,35 +6,41 @@ using System.Linq;
 namespace Designer
 {
     [Serializable]
-    public class IOPoint
+    public class IOPoint : GridElement
     {
+        public override Type type => Type.IOPoint;
+
         public bool isInput { get; private set; }
+        public bool enabled { get; set; }
+
         [SerializeReference]public Node parentNode;
-        public Rect rect 
-        { 
+        public override Rect position
+        {
             get
             {
-                if (isInput)
+                Rect pos = new Rect(parentNode.position.position + Vector2.up * (parentNode.position.height / 2f - size.y / 2f) + Vector2.left * size.x, size);
+                if (!isInput)
                 {
-                    return new 
-                        Rect(parentNode.screenPosition.position + new Vector2(-size.x * 1.5f * EditorData.zoomRatio,parentNode.screenPosition.height / 2 - size.y * EditorData.zoomRatio),
-                        size * 2f * EditorData.zoomRatio);
+                    pos.position += Vector2.right * (parentNode.position.width + size.x);
                 }
-                else
-                {
-                    return new Rect(parentNode.screenPosition.position + new Vector2(-size.x * 0.5f * EditorData.zoomRatio + parentNode.screenPosition.width, parentNode.screenPosition.height / 2 - size.y* EditorData.zoomRatio), size * 2f * EditorData.zoomRatio);
-                }
+                return pos;
+            }
+            internal set
+            {
+
             }
         }
 
-        private Vector2 size = new Vector2(8f, 8f);
+        private Vector2 size => Vector2.one * (enabled ? 18f : 0f);
 
-        public Vector2 bezierStartPosition => rect.center + (isInput ? new Vector2(-6f * EditorData.zoomRatio, 0f) : new Vector2(6f * EditorData.zoomRatio, 0f));
+        public Vector2 bezierStartPosition => screenPosition.center + (isInput ? new Vector2(-6f * EditorData.zoomRatio, 0f) : new Vector2(6f * EditorData.zoomRatio, 0f));
+
 
         public IOPoint(bool isInput, Node parentNode)
         {
             this.isInput = isInput;
             this.parentNode = parentNode;
+            enabled = true;
         }
 
         public bool CanConnectTo(IOPoint other)
@@ -65,14 +71,9 @@ namespace Designer
             return finalResult;
         }
 
-        public void Draw()
+        public override void Draw()
         {
-            GUI.DrawTexture(rect, DesignerUtility.EditorSettings.IOPointTexture, ScaleMode.StretchToFill, false, 0f, DesignerUtility.EditorSettings.IOPointColor, 0f, size.x * EditorData.zoomRatio);
-        }
-
-        public void Draw(Color customColor)
-        {
-            GUI.DrawTexture(rect, DesignerUtility.EditorSettings.IOPointTexture, ScaleMode.StretchToFill, false, 0f, customColor, 0f, size.x * EditorData.zoomRatio);
+            GUI.DrawTexture(screenPosition, DesignerUtility.EditorSettings.IOPointTexture, ScaleMode.StretchToFill, false, 0f, isHovered ? Color.cyan : DesignerUtility.EditorSettings.IOPointColor, 0f, size.x * EditorData.zoomRatio);
         }
     }
 }

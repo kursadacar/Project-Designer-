@@ -10,7 +10,11 @@ namespace Designer
         public bool showGroups;
         public bool showEditorSettings;
         public Vector2 scrollPosition;
-        public float lastWidth;
+        public float targetX;
+        public float activeX;
+        public float lastX;
+        public float minX => -250f;
+        public float width => 250f;
 
         public OptionsPanelData(bool openAllFoldouts)
         {
@@ -19,7 +23,9 @@ namespace Designer
             showEditorSettings = openAllFoldouts;
             showGroups = openAllFoldouts;
             scrollPosition = new Vector2();
-            lastWidth = 250f;
+            targetX = 0f;
+            lastX = targetX;
+            activeX = targetX;
         }
     }
 }

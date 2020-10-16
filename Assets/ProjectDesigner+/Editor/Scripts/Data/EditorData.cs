@@ -5,10 +5,15 @@ namespace Designer
 {
     public static class EditorData
     {
+        public static float gridSize { get; private set; }
         public static float zoomRatio { get; private set; }
         public static void SetZoomRatio(float ratio)
         {
             zoomRatio = ratio;
+        }
+        public static void SetGridSize(float val)
+        {
+            gridSize = val;
         }
 
         public static Vector2 offset = new Vector2();

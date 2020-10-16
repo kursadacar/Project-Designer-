@@ -12,7 +12,8 @@ namespace Designer
 
             public Enum(Rect _pos,string _name) : base(_pos,_name)
             {
-
+                input.enabled = false;
+                output.enabled = false;
             }
         }
     }

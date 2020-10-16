@@ -1,16 +1,17 @@
 ﻿using System.Collections.Generic;
 using UnityEngine;
 using UnityEditor;
-using System;
-using UnityEngine.UI;
 using System.Linq;
+using System.Collections;
 using System.Security.Cryptography;
 
 namespace Designer
 {
     [System.Serializable]
-    public abstract partial class Node
+    public abstract partial class Node : GridElement
     {
+        public override Type type => Type.Node;
+
         public bool selected;
 
         public List<NodeElement> childElements = new List<NodeElement>();
@@ -117,11 +118,7 @@ namespace Designer
             Interface,
             Enum
         }
-
-        public string name { get; private set; }
         public abstract NodeType nodeType { get; }
-        public Rect position { get; private set; }
-        public Rect screenPosition => new Rect(DesignerUtility.GetScreenPositionFromGridPoint(position.position), position.size * EditorData.zoomRatio);
 
         public IOPoint input;
         public IOPoint output;
@@ -187,7 +184,7 @@ namespace Designer
                 parentGroup.RemoveNode(this);
             }
             parentGroup = group;
-            group?.AddNode(this);
+            parentGroup?.AddNode(this);
         }
 
         public void SetName(string _name)
@@ -208,6 +205,7 @@ namespace Designer
         public void Select()
         {
             selected = true;
+            
         }
 
         public void Deselect()
@@ -220,66 +218,22 @@ namespace Designer
             return "node-header-" + Mathf.FloorToInt(position.position.x) + "|" + Mathf.FloorToInt(position.position.y);
         }
 
-        public void Draw()
+        public override void Draw()
         {
             RecalculatePosition();
-
-            //Inherit color
-            InheritColor();
 
             //Draw Background
             DrawBox();
 
             //Draw Contents
             DrawContents();
-
-            DrawIOPoints();
-        }
-
-        public void DrawInputActive()
-        {
-            RecalculatePosition();
-
-            //Inherit color
-            InheritColor();
-
-            //Draw Background
-            DrawBox();
-
-            //Draw Contents
-            DrawContents();
-
-            if (nodeType == NodeType.Enum)
-                return;
-            input.Draw(Color.cyan);
-            output.Draw();
-        }
-
-        public void DrawOutputActive()
-        {
-            RecalculatePosition();
-
-            //Inherit color
-            InheritColor();
-
-            //Draw Background
-            DrawBox();
-
-            //Draw Contents
-            DrawContents();
-
-            if (nodeType == NodeType.Enum)
-                return;
-            input.Draw();
-            output.Draw(Color.cyan);
         }
 
         private void RecalculatePosition()
         {
-            var targetSize = new Vector2(DesignerUtility.EditorSettings.nodeWidth, (DesignerUtility.EditorSettings.GetRawNodeElementHeight() + rawNodeOffset) * (ChildsIncludingHeader.Count + 2) + 10f);
-            if (selected)
-                targetSize = targetSize * 1.05f;
-            position = new Rect(position.position, Vector2.Lerp(position.size, targetSize, EditorData.deltaTime * 10f));
+            int elementCountMultiplier = (EditorData.zoomRatio >= 1f ? ChildsIncludingHeader.Count + 2 : 3);
+            var targetSize = new Vector2(DesignerUtility.EditorSettings.nodeWidth, (DesignerUtility.EditorSettings.GetRawNodeElementHeight() + rawNodeOffset) * elementCountMultiplier + 10f);
+            position = new Rect(position.position, Vector2.Lerp(position.size,targetSize,EditorData.deltaTime));
         }
 
         private void InheritColor()
@@ -290,7 +244,7 @@ namespace Designer
             }
         }
 
-        private void ChangeColor(object value)
+        private void ChangeColorFromContextMenu(object value)
         {
             var newColor = (NodeColor)value;
             color = newColor;
@@ -310,33 +264,33 @@ namespace Designer
                     headerRect = new Rect(contentRect.width / 5f, 0f, contentRect.width / 5f * 3f, DesignerUtility.EditorSettings.NodeElementHeight);
                     contentWithoutLabel = new Rect(2f, DesignerUtility.EditorSettings.NodeElementHeight + 2f, contentRect.width - 4f, contentRect.height - DesignerUtility.EditorSettings.NodeElementHeight - 4f);
 
-                    GUI.DrawTexture(headerRect, Texture2D.whiteTexture, ScaleMode.StretchToFill, false, 0f, Color.gray, 0f, 3f * EditorData.zoomRatio);
-                    //GUI.SetNextControlName(GetHeaderControlName());
-                    name = GUI.TextField(headerRect, name, CustomStyles.nodeHeader);
-
-                    if (parentNode == null)
-                    {
-                        if (GUI.Button(colorSelectionRect, ""))
-                        {
-
-                            GenericMenu menu = new GenericMenu();
-                            foreach(var color in DesignerUtility.EditorSettings.nodeColors)
-                            {
-                                object data = color;
-                                menu.AddItem(new GUIContent(color.name), this.color == color, this.ChangeColor, data);
-                            }
-                            menu.ShowAsContext();
-                            Event.current.Use();
-                        }
-                        GUI.DrawTexture(colorSelectionRect, DesignerUtility.EditorSettings.colorWheelTexture, ScaleMode.ScaleToFit);
-                    }
-
                     if (EditorData.zoomRatio >= 1f)
                     {
+                        GUI.DrawTexture(headerRect, Texture2D.whiteTexture, ScaleMode.StretchToFill, false, 0f, Color.gray, 0f, 3f * EditorData.zoomRatio);
+                        //GUI.SetNextControlName(GetHeaderControlName());
+                        name = GUI.TextField(headerRect, name, StylePresets.nodeHeader);
+
+                        if (parentNode == null)
+                        {
+                            if (GUI.Button(colorSelectionRect, ""))
+                            {
+
+                                GenericMenu menu = new GenericMenu();
+                                foreach (var color in DesignerUtility.EditorSettings.nodeColors)
+                                {
+                                    object data = color;
+                                    menu.AddItem(new GUIContent(color.name), this.color == color, this.ChangeColorFromContextMenu, data);
+                                }
+                                menu.ShowAsContext();
+                                Event.current.Use();
+                            }
+                            GUI.DrawTexture(colorSelectionRect, DesignerUtility.EditorSettings.colorWheelTexture, ScaleMode.ScaleToFit);
+                        }
+
                         DrawElements(contentWithoutLabel);
 
-                        Rect buttonRect = new Rect(0f, (DesignerUtility.EditorSettings.NodeElementHeight + nodeOffset) * (ChildsIncludingHeader.Count + 1), contentRect.width, DesignerUtility.EditorSettings.NodeElementHeight);
-                        if (GUI.Button(buttonRect, "+", CustomStyles.button))
+                        Rect buttonRect = new Rect(contentRect.width / 3f, (DesignerUtility.EditorSettings.NodeElementHeight + nodeOffset) * (ChildsIncludingHeader.Count + 1), contentRect.width / 3f, DesignerUtility.EditorSettings.NodeElementHeight);
+                        if (GUI.Button(buttonRect, "+", StylePresets.button))
                         {
                             var element = new NodeElement.Field();
                             AddElement(element);
@@ -344,8 +298,9 @@ namespace Designer
                     }
                     else
                     {
-                        var rect = new Rect(0f, DesignerUtility.EditorSettings.NodeElementHeight, contentRect.width, contentRect.height);
-                        GUI.Label(rect, ". . .", CustomStyles.GetCustomLabel(Color.white, 24, TextAnchor.MiddleCenter));
+                        var labelRect = new Rect(0f, 0f, contentRect.width, contentRect.height);
+                        //GUI.DrawTexture(labelRect, Texture2D.whiteTexture, ScaleMode.StretchToFill, false, 0f, Color.gray, 0f, 0f);
+                        GUI.Label(labelRect, name, StylePresets.GetCustomLabel(Color.white, 26, TextAnchor.MiddleCenter, FontStyle.Bold));
                     }
                 }
                 //content rect
@@ -357,19 +312,22 @@ namespace Designer
 
         private void DrawIOPoints()
         {
-            if (nodeType == NodeType.Enum)
-                return;
             input.Draw();
             output.Draw();
         }
 
         private void DrawBox()
         {
-            var outlineRect = new Rect(screenPosition.position - outlineOffset, screenPosition.size + outlineOffset * 2f);
-            outlineColor = Color.Lerp(outlineColor, selected ? Color.cyan : Color.clear, EditorData.deltaTime * 10f);
-            GUI.DrawTexture(outlineRect, DesignerUtility.EditorSettings.nodeTexture, ScaleMode.StretchToFill, false, 0f, outlineColor, outlineWidth, 5f * EditorData.zoomRatio);
+            //Draw shadow
+            if (parentGroup == null)
+            {
+                GUI.DrawTexture(shadowRect, DesignerUtility.EditorSettings.nodeTexture, ScaleMode.StretchToFill, false, 0f, DesignerUtility.EditorSettings.nodeShadowColor, 0f, 3f);
+            }
 
-            GUI.DrawTexture(shadowRect, DesignerUtility.EditorSettings.nodeTexture, ScaleMode.StretchToFill, false, 0f, DesignerUtility.EditorSettings.nodeShadowColor, 0f, 3f);
+            var outlineRect = new Rect(screenPosition.position - outlineOffset, screenPosition.size + outlineOffset * 2f);
+            outlineColor = Color.Lerp(outlineColor, selected ? Color.cyan : Color.clear, EditorData.deltaTime);
+            GUI.DrawTexture(outlineRect, DesignerUtility.EditorSettings.nodeTexture, ScaleMode.StretchToFill, false, 0f, outlineColor, 0f, 7f * EditorData.zoomRatio);
+
             GUI.DrawTexture(screenPosition, DesignerUtility.EditorSettings.nodeTexture,ScaleMode.StretchToFill,false,0f, color, 0f,5f * EditorData.zoomRatio);
         }
 

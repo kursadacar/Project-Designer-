@@ -13,4 +13,4 @@ MonoBehaviour:
   m_Name: Dark
   m_EditorClassIdentifier: 
   name: Dark
-  color: {r: 0.3, g: 0.3, b: 0.3, a: 1}
+  color: {r: 0.29803923, g: 0.29803923, b: 0.29803923, a: 1}

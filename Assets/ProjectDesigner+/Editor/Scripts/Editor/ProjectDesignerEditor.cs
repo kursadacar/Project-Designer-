@@ -8,47 +8,61 @@ using System.Text.RegularExpressions;
 using System.Diagnostics;
 using Debug = UnityEngine.Debug;
 using System.Runtime.InteropServices;
+using System.Threading;
 
 namespace Designer
 {
     [Serializable]
     public class ProjectDesignerEditor : EditorWindow
     {
-        private List<Node> activeNodes = new List<Node>();
+        private List<GridElement> AllGridElements
+        {
+            get
+            {
+                var list = new List<GridElement>();
+                list.AddRange(activeNodes);
+                list.AddRange(activeConnections);
+                list.AddRange(activeGroups);
+                foreach(var node in activeNodes)
+                {
+                    list.Add(node.input);
+                    list.Add(node.output);
+                }
+                return list;
+            }
+        }
+
         private List<Node> selectedNodes = new List<Node>();
         private List<Node> grabbedNodes = new List<Node>();
         private List<Node> visibleNodes = new List<Node>();
 
-        private List<Connection> connections = new List<Connection>();
+        private List<Node> activeNodes = new List<Node>();
+
+        private List<Connection> activeConnections = new List<Connection>();
 
         private List<Group> activeGroups = new List<Group>();
 
         private Rect selectionRect;
+        private OptionsPanelData optionsPanelData;
+        private EditorSettings settings;
+        private Rect viewport;
 
-        float gridSize = 100;
+        private bool mouseDragged = false;
+        private bool grabbedOptionsPanel;
+        private bool optionsPanelEnabled = true;
 
-        //private Vector2 gridOffset;
+        private IOPoint selectedIOPoint;
 
-        int verticalWhiteLineBegin;
-        int horizontalWhiteLineBegin;
+        //private Connection hoveredConnection;
+        //private IOPoint hoveredIOPoint;
+        private GridElement hoveredElement;
 
-        float optionsPanelWidth = 250f;
+        private GridElement activeClickedElement;
 
-        bool mouseDragged = false;
-        bool grabbedOptionsPanel;
-        bool optionsPanelEnabled = true;
-        OptionsPanelData optionsPanelData;
-        EditorSettings settings;
-        Rect viewport;
-
-        IOPoint selectedIOPoint;
-
-        private Connection hoveredConnection;
-        private IOPoint hoveredIOPoint;
-
-        private Node activeClickedNode;
         private List<Vector2> grabbedNodesInitialPosition = new List<Vector2>();
         private List<Vector2> gridPoints = new List<Vector2>();
+
+        private DateTime lastOnGUITime;
 
         #region Obligatory
         [MenuItem("ProjectDesigner+/ProjectDesigner+")]
@@ -63,11 +77,14 @@ namespace Designer
         {
             optionsPanelData = new OptionsPanelData(true);
             settings = DesignerUtility.EditorSettings;
+            EditorData.SetGridSize(100f);
         }
 
         void OnGUI()
         {
-            Stopwatch stopWatch = Stopwatch.StartNew();
+            //Set EditorData values
+            EditorData.SetDeltaTime((DateTime.Now.Millisecond - lastOnGUITime.Millisecond) / 25f);
+            EditorData.SetMousePosition(Event.current.mousePosition);
 
             wantsMouseMove = true;
             viewport = new Rect(DesignerUtility.GetGridPositionFromScreenPoint(new Vector2(0f,0f)), position.size / EditorData.zoomRatio);
@@ -79,17 +96,13 @@ namespace Designer
             DrawHoveringBezier();
             DrawNodes();
             DrawSelectionRect();
-            DrawOptionsPanel(optionsPanelWidth, ref optionsPanelData);
+            DrawOptionsPanel();
 
             HandleEvents(Event.current);
 
             Repaint();
 
-            stopWatch.Stop();
-            //Set EditorData values
-            EditorData.SetDeltaTime((float)(stopWatch.ElapsedMilliseconds) / 100f);
-            EditorData.SetMousePosition(Event.current.mousePosition);
-            //Debug.Log(EditorData.deltaTime);
+            lastOnGUITime = DateTime.Now;
         }
 
         #region Utilities
@@ -99,6 +112,9 @@ namespace Designer
         {
             //Enums can not connect with other nodes
             if (from.nodeType == Node.NodeType.Enum || to.nodeType == Node.NodeType.Enum)
+                return;
+
+            if (!from.output.CanConnectTo(to.input))
                 return;
 
             Connection connection = null;
@@ -129,29 +145,24 @@ namespace Designer
             }
 
 
-            connections.Add(connection);
+            activeConnections.Add(connection);
             from.Connect(to, connection);
 
         }
 
         private void DrawConnections()
         {
-            foreach (var connection in connections)
+            foreach (var connection in activeConnections)
             {
-                if(hoveredConnection!= null && hoveredConnection == connection)
-                {
-                    connection.Draw(Color.cyan);
-                    continue;
-                }
                 connection.Draw();
             }
         }
 
         private void DeleteConnection(Connection con)
         {
-            if (connections.Contains(con))
+            if (activeConnections.Contains(con))
             {
-                connections.Remove(con);
+                activeConnections.Remove(con);
                 con.fromNode.connections.Remove(con);
                 con.fromNode.childNodes.Remove(con.toNode);
 
@@ -290,7 +301,10 @@ namespace Designer
                 void LeftClickOnGrid()
                 {
                     selectionRect.position = mousePosition;
-                    DeselectAllNodes();
+                    if (!_event.control)
+                    {
+                        DeselectAllNodes();
+                    }
                     LoseFocus();
                 }
 
@@ -336,37 +350,48 @@ namespace Designer
                     _event.Use();
                 }
 
-                void CheckHoveredIOPoints()
+                void CheckHoveredGridElements()
                 {
-                    hoveredIOPoint = null;
-                    foreach (var node in visibleNodes)
+                    if(hoveredElement != null)
                     {
-                        if (node.input.rect.Contains(mousePosition))
+                        hoveredElement.isHovered = false;
+                        hoveredElement = null;
+                    }
+
+                    var list = AllGridElements;
+                    //Scan backwards so ones on top checked first
+                    for(int i = list.Count - 1; i >= 0; i--)
+                    {
+                        var element = list[i];
+                        if (element.CheckIfHovered())
                         {
-                            hoveredIOPoint = node.input;
-                            break;
-                        }
-                        if (node.output.rect.Contains(mousePosition))
-                        {
-                            hoveredIOPoint = node.output;
+                            hoveredElement = element;
+                            hoveredElement.isHovered = true;
                             break;
                         }
                     }
                 }
-
-                void CheckHoveredConnections()
+                void CheckHoveredIOPoints()
                 {
-                    hoveredConnection = null;
-                    foreach (var con in connections)
+                    if (hoveredElement != null)
                     {
-                        if (con.boundingRect.Contains(mousePosition, true))
+                        hoveredElement.isHovered = false;
+                        hoveredElement = null;
+                    }
+
+                    foreach (var node in visibleNodes)
+                    {
+                        if (node.input.CheckIfHovered() && selectedIOPoint.CanConnectTo(node.input))
                         {
-                            var dist = HandleUtility.DistancePointBezier(mousePosition, con.fromPosition, con.toPosition, con.fromTangent, con.toTangent);
-                            if (dist < DesignerUtility.EditorSettings.connectionWidth * EditorData.zoomRatio * 1.3f)
-                            {
-                                hoveredConnection = con;
-                                break;
-                            }
+                            hoveredElement = node.input;
+                            hoveredElement.isHovered = true;
+                            break;
+                        }
+                        else if (node.output.CheckIfHovered() && selectedIOPoint.CanConnectTo(node.output))
+                        {
+                            hoveredElement = node.output;
+                            hoveredElement.isHovered = true;
+                            break;
                         }
                     }
                 }
@@ -393,11 +418,8 @@ namespace Designer
                 //Mouse Move
                 if(_event.type == EventType.MouseMove)
                 {
-                    //Check if hovering connections
-                    CheckHoveredConnections();
-
-                    //Check if hovering io points
-                    CheckHoveredIOPoints();
+                    //Check if hovering over any grid elements
+                    CheckHoveredGridElements();
                 }
 
                 //Mouse Down
@@ -409,12 +431,12 @@ namespace Designer
                         //Clicked on a node or IO Point?
                         foreach (var node in visibleNodes)
                         {
-                            if (node.input.rect.Contains(mousePosition))
+                            if (node.input.screenPosition.Contains(mousePosition))
                             {
                                 selectedIOPoint = node.input;
                                 return;
                             }
-                            if (node.output.rect.Contains(mousePosition))
+                            if (node.output.screenPosition.Contains(mousePosition))
                             {
                                 selectedIOPoint = node.output;
                                 return;
@@ -445,31 +467,47 @@ namespace Designer
                                 activeNodes.Add(node);
 
                                 //set active clicked node
-                                activeClickedNode = node;
+                                activeClickedElement = node;
                                 //record grabbed nodes positions
                                 grabbedNodesInitialPosition.Clear();
                                 foreach (var grabbedNode in grabbedNodes)
                                 {
                                     grabbedNodesInitialPosition.Add(grabbedNode.position.position);
                                 }
-                                
                                 return;
                             }
                         }
 
                         //Clicked on a connection?
-                        if(hoveredConnection != null)
+                        if(hoveredElement != null && hoveredElement.type == GridElement.Type.Connection)
                         {
-                            DeleteConnection(hoveredConnection);
-                            if(Vector2.Distance(hoveredConnection.fromPosition,mousePosition) < Vector2.Distance(hoveredConnection.toPosition, mousePosition))
+                            var con = (Connection)hoveredElement;
+                            DeleteConnection(con);
+                            if(Vector2.Distance(con.fromPosition,mousePosition) < Vector2.Distance(con.toPosition, mousePosition))
                             {
-                                selectedIOPoint = hoveredConnection.toPoint;
+                                selectedIOPoint = con.toPoint;
                             }
                             else
                             {
-                                selectedIOPoint = hoveredConnection.fromPoint;
+                                selectedIOPoint = con.fromPoint;
                             }
                             return;
+                        }
+
+                        //Clicked on a group
+                        foreach (var group in activeGroups)
+                        {
+                            if (group.screenPosition.Contains(mousePosition) || group.headerPosition.Contains(mousePosition))
+                            {
+                                DeselectAllNodes();
+                                foreach(var node in group.childNodes)
+                                {
+                                    //Grab all nodes in the group
+                                    grabbedNodes.Add(node);
+                                }
+                                activeClickedElement = group;
+                                return;
+                            }
                         }
 
                         //Clicked on grid?
@@ -505,8 +543,7 @@ namespace Designer
                         {
                             if (_event.shift)
                             {
-
-                                Vector2 offset = DesignerUtility.GetGridPositionFromScreenPoint(GetNearestGridPoint(mousePosition)) - activeClickedNode.position.position;
+                                Vector2 offset = DesignerUtility.GetGridPositionFromScreenPoint(GetNearestGridPoint(mousePosition)) - activeClickedElement.position.position;
 
                                 foreach(var node in grabbedNodes)
                                 {
@@ -529,7 +566,7 @@ namespace Designer
                             DrawSelectionRect();
                         }
 
-                        if(selectedIOPoint != null)
+                        if (selectedIOPoint != null)
                         {
                             //Check if hovering io points
                             CheckHoveredIOPoints();
@@ -573,7 +610,7 @@ namespace Designer
                 //Mouse up
                 if (_event.type == EventType.MouseUp)
                 {
-                    activeClickedNode = null;
+                    activeClickedElement = null;
                     //Dragging a bezier from io point
                     if (selectedIOPoint != null)
                     {
@@ -582,7 +619,7 @@ namespace Designer
                         {
                             if (selectedIOPoint.isInput)
                             {
-                                if (node.output.rect.Contains(mousePosition))
+                                if (node.output.screenPosition.Contains(mousePosition))
                                 {
                                     ConnectNodes(node, selectedIOPoint.parentNode);
                                     return;
@@ -590,7 +627,7 @@ namespace Designer
                             }
                             else
                             {
-                                if (node.input.rect.Contains(mousePosition))
+                                if (node.input.screenPosition.Contains(mousePosition))
                                 {
                                     ConnectNodes(selectedIOPoint.parentNode, node);
                                     return;
@@ -621,15 +658,25 @@ namespace Designer
                         else
                         {
                             SetZoom(100f);
+                            if (_event.control)
+                            {
+                                DesignerUtility.CenterViewToPosition(Vector2.zero);
+                            }
                         }
                     }
-                    //_event.Use();
+                    if(_event.keyCode == KeyCode.A)
+                    {
+                        foreach(var node in activeNodes)
+                        {
+                            SelectNode(node);
+                        }
+                    }
                 }
             }
 
             void HandleGeneralEvents(Vector2 mousePosition, Event _event)
             {
-                Rect optionsPanelHandleRect = new Rect(optionsPanelWidth - 2f, 0f, 4f, position.height);
+                Rect optionsPanelHandleRect = new Rect(optionsPanelData.targetX + optionsPanelData.width - 2f, 0f, 4f, position.height);
                 EditorGUIUtility.AddCursorRect(optionsPanelHandleRect, MouseCursor.ResizeHorizontal);
 
                 //Mouse Down
@@ -652,7 +699,25 @@ namespace Designer
                         //Resize options panel
                         if (grabbedOptionsPanel)
                         {
-                            optionsPanelWidth = mousePosition.x;
+                            optionsPanelData.targetX = mousePosition.x - optionsPanelData.width;
+                            if(optionsPanelData.targetX < optionsPanelData.minX)
+                            {
+                                optionsPanelData.targetX = optionsPanelData.minX;
+                            }
+                            if(optionsPanelData.targetX > 0f)
+                            {
+                                optionsPanelData.targetX = 0f;
+                            }
+
+                            if(optionsPanelData.targetX < -optionsPanelData.width + 10)
+                            {
+                                optionsPanelData.targetX = -optionsPanelData.width;
+                                optionsPanelEnabled = false;
+                            }
+                            else
+                            {
+                                optionsPanelEnabled = true;
+                            }
                         }
                     }
                 }
@@ -681,7 +746,7 @@ namespace Designer
                 }
             }
 
-            Rect gridRect = new Rect(optionsPanelWidth, 0f, position.width - optionsPanelWidth, position.height);
+            Rect gridRect = new Rect(optionsPanelData.targetX + optionsPanelData.width, 0f, position.width - optionsPanelData.width, position.height);
             if (gridRect.Contains(currentEvent.mousePosition))
             {
                 HandleGridEvents(currentEvent.mousePosition, currentEvent);
@@ -708,14 +773,14 @@ namespace Designer
         {
             Vector2 oldCenter = DesignerUtility.GetGridPositionFromScreenPoint(position.size / 2);
 
-            gridSize -= zoomDelta;
+            EditorData.SetGridSize(EditorData.gridSize - zoomDelta);
             //Clamp
-            if (gridSize < settings.minGridSize)
-                gridSize = settings.minGridSize;
-            if (gridSize > settings.maxGridSize)
-                gridSize = settings.maxGridSize;
+            if (EditorData.gridSize < settings.minGridSize)
+                EditorData.SetGridSize(settings.minGridSize);
+            if (EditorData.gridSize > settings.maxGridSize)
+                EditorData.SetGridSize(settings.maxGridSize);
 
-            EditorData.SetZoomRatio(gridSize / 100f);
+            EditorData.SetZoomRatio(EditorData.gridSize / 100f);
             DesignerUtility.CenterViewToPosition(oldCenter);
             Event.current.Use();
         }
@@ -724,27 +789,30 @@ namespace Designer
         {
             Vector2 oldCenter = DesignerUtility.GetGridPositionFromScreenPoint(position.size / 2);
 
-            gridSize = zoom;
+            EditorData.SetGridSize(zoom);
             //Clamp
-            if (gridSize < settings.minGridSize)
-                gridSize = settings.minGridSize;
-            if (gridSize > settings.maxGridSize)
-                gridSize = settings.maxGridSize;
+            if (EditorData.gridSize < settings.minGridSize)
+                EditorData.SetGridSize(settings.minGridSize);
+            if (EditorData.gridSize > settings.maxGridSize)
+                EditorData.SetGridSize(settings.maxGridSize);
 
-            EditorData.SetZoomRatio(gridSize / 100f);
+            EditorData.SetZoomRatio(EditorData.gridSize / 100f);
             DesignerUtility.CenterViewToPosition(oldCenter);
         }
 
         private void DrawGrid()
         {
+            float gridSize = EditorData.gridSize;
+
             int horizontalLineCount = Mathf.FloorToInt(position.height / gridSize) + 2;
             int verticalLineCount = Mathf.FloorToInt(position.width / gridSize) + 2;
+
             Vector2 beginPos, endPos;
             Vector2 activeOffset = new Vector2(EditorData.offset.x % gridSize, EditorData.offset.y % gridSize);
             Vector2 origin = new Vector2(-gridSize, -gridSize) + activeOffset;
 
-            verticalWhiteLineBegin = Mathf.FloorToInt(EditorData.offset.x / gridSize + 1) % 10;
-            horizontalWhiteLineBegin = Mathf.FloorToInt(EditorData.offset.y / gridSize + 1) % 10;
+            int verticalWhiteLineBegin = Mathf.FloorToInt(EditorData.offset.x / gridSize + 1) % 10;
+            int horizontalWhiteLineBegin = Mathf.FloorToInt(EditorData.offset.y / gridSize + 1) % 10;
 
             if (verticalWhiteLineBegin < 0)
                 verticalWhiteLineBegin = verticalWhiteLineBegin + 10;
@@ -809,7 +877,7 @@ namespace Designer
         #endregion
 
         #region Draw Functions
-        private void DrawOptionsPanel(float width, ref OptionsPanelData pSettings)
+        private void DrawOptionsPanel()
         {
             #region Utility
             void DrawDebugUI()
@@ -817,15 +885,20 @@ namespace Designer
                 GUIStyle elementStyle = new GUIStyle(EditorStyles.helpBox);
                 elementStyle.alignment = TextAnchor.MiddleLeft;
                 elementStyle.wordWrap = true;
+                //GUILayout.Box("Delta Time: " + EditorData.deltaTime, elementStyle);
+                //GUILayout.Box("FPS: " + (1f / EditorData.deltaTime), elementStyle);
+                //GUILayout.Box("DateTime.Now ms: " + DateTime.Now.Millisecond, elementStyle);
+                //GUILayout.Box("LastUpdateTime ms:" + lastOnGUITime.Millisecond, elementStyle);
+                //GUILayout.Box("Diff ms:" + (DateTime.Now.Millisecond - lastOnGUITime.Millisecond), elementStyle);
                 GUILayout.Box("Mouse Position : " + Event.current.mousePosition.ToString(), elementStyle);
                 GUILayout.Box("Mouse Position in Grid : " + DesignerUtility.GetGridPositionFromScreenPoint(Event.current.mousePosition).ToString(), elementStyle);
                 GUILayout.Box("Window Rect : " + position.ToString(), elementStyle);
                 GUILayout.Box("Offset : " + EditorData.offset.ToString(), elementStyle);
-                GUILayout.Box("Grid Size : " + gridSize.ToString(), elementStyle);
+                GUILayout.Box("Grid Size : " + EditorData.gridSize.ToString(), elementStyle);
                 GUILayout.Box("Center Pos : " + DesignerUtility.GetGridPositionFromScreenPoint(position.size / 2).ToString(), elementStyle);
                 GUILayout.Box("Viewport Center : " + viewport.center, elementStyle);
-                GUILayout.Box("Vertical White Line Begin : " + verticalWhiteLineBegin.ToString(), elementStyle);
-                GUILayout.Box("Horizontal White Line Begin : " + horizontalWhiteLineBegin.ToString(), elementStyle);
+                //GUILayout.Box("Vertical White Line Begin : " + verticalWhiteLineBegin.ToString(), elementStyle);
+                //GUILayout.Box("Horizontal White Line Begin : " + horizontalWhiteLineBegin.ToString(), elementStyle);
                 GUILayout.Box("Mouse Screen Position (Calculated from Grid Position) : " +
                     DesignerUtility.GetScreenPositionFromGridPoint(DesignerUtility.GetGridPositionFromScreenPoint(Event.current.mousePosition)),
                         elementStyle);
@@ -878,52 +951,53 @@ namespace Designer
             }
             #endregion
 
-            Rect panelArea = new Rect(0f, 0f, width, position.height);
+            optionsPanelData.activeX = Mathf.Lerp(optionsPanelData.activeX, optionsPanelData.targetX, EditorData.deltaTime);
+            Rect panelArea = new Rect(optionsPanelData.activeX, 0f, optionsPanelData.width, position.height);
             GUI.DrawTexture(panelArea, Texture2D.whiteTexture, ScaleMode.StretchToFill, false, 0f, settings.optionsPanelColor, 0f, 0f);
             GUILayout.BeginArea(panelArea);
-            GUILayout.Label("Options Panel");
-            optionsPanelData.scrollPosition = GUILayout.BeginScrollView(pSettings.scrollPosition);
+            {
+                GUILayout.Label("Options Panel");
+                optionsPanelData.scrollPosition = GUILayout.BeginScrollView(optionsPanelData.scrollPosition);
 
-            pSettings.showDebugWindow = EditorGUILayout.Foldout(optionsPanelData.showDebugWindow, "Debug");
-            if (pSettings.showDebugWindow)
-            {
-                DrawDebugUI();
-            }
-            pSettings.showNodes = EditorGUILayout.Foldout(pSettings.showNodes, "Show Nodes");
-            if (pSettings.showNodes)
-            {
-                DrawNodeList();
-            }
-            pSettings.showGroups = EditorGUILayout.Foldout(pSettings.showGroups, "Show Groups");
-            if (pSettings.showGroups)
-            {
-                DrawGroupList();
-            }
-            pSettings.showEditorSettings = EditorGUILayout.Foldout(pSettings.showEditorSettings, "Show Editor Settings");
-            if (pSettings.showEditorSettings)
-            {
-                if (GUILayout.Button("Reset Settings to Default"))
+                optionsPanelData.showDebugWindow = EditorGUILayout.Foldout(optionsPanelData.showDebugWindow, "Debug");
+                if (optionsPanelData.showDebugWindow)
                 {
-                    ResetEditorSettings();
+                    DrawDebugUI();
                 }
-                DrawEditorSettings();
+                optionsPanelData.showNodes = EditorGUILayout.Foldout(optionsPanelData.showNodes, "Show Nodes");
+                if (optionsPanelData.showNodes)
+                {
+                    DrawNodeList();
+                }
+                optionsPanelData.showGroups = EditorGUILayout.Foldout(optionsPanelData.showGroups, "Show Groups");
+                if (optionsPanelData.showGroups)
+                {
+                    DrawGroupList();
+                }
+                optionsPanelData.showEditorSettings = EditorGUILayout.Foldout(optionsPanelData.showEditorSettings, "Show Editor Settings");
+                if (optionsPanelData.showEditorSettings)
+                {
+                    if (GUILayout.Button("Reset Settings to Default"))
+                    {
+                        ResetEditorSettings();
+                    }
+                    DrawEditorSettings();
+                }
+                GUILayout.EndScrollView();
             }
-
-
-            GUILayout.EndScrollView();
             GUILayout.EndArea();
 
-            if (GUI.Button(new Rect(panelArea.width, 25f, 25f, 25f), optionsPanelEnabled ? "-" : "+"))
+            if (GUI.Button(new Rect(panelArea.x + panelArea.width, 25f, 25f, 25f), optionsPanelEnabled ? "-" : "+"))
             {
                 if (optionsPanelEnabled)
                 {
-                    pSettings.lastWidth = optionsPanelWidth;
-                    optionsPanelWidth = 0f;
+                    optionsPanelData.lastX = optionsPanelData.targetX;
+                    optionsPanelData.targetX = -optionsPanelData.width;
                     optionsPanelEnabled = false;
                 }
                 else
                 {
-                    optionsPanelWidth = pSettings.lastWidth;
+                    optionsPanelData.targetX = optionsPanelData.lastX;
                     optionsPanelEnabled = true;
                 }
             }
@@ -937,46 +1011,7 @@ namespace Designer
             {
                 if (viewport.ContainsArea(activeNodes[i].position))
                 {
-                    if (hoveredIOPoint == activeNodes[i].input)
-                    {
-                        if (selectedIOPoint != null)
-                        {
-                            if (selectedIOPoint.CanConnectTo(activeNodes[i].input))
-                            {
-                                activeNodes[i].DrawInputActive();
-                            }
-                            else
-                            {
-                                activeNodes[i].Draw();
-                            }
-                        }
-                        else
-                        {
-                            activeNodes[i].DrawInputActive();
-                        }
-                    }
-                    else if (hoveredIOPoint == activeNodes[i].output)
-                    {
-                        if (selectedIOPoint != null)
-                        {
-                            if (selectedIOPoint.CanConnectTo(activeNodes[i].output))
-                            {
-                                activeNodes[i].DrawOutputActive();
-                            }
-                            else
-                            {
-                                activeNodes[i].Draw();
-                            }
-                        }
-                        else
-                        {
-                            activeNodes[i].DrawOutputActive();
-                        }
-                    }
-                    else
-                    {
-                        activeNodes[i].Draw();
-                    }
+                    activeNodes[i].Draw();
                     visibleNodes.Add(activeNodes[i]);
                 }
             }
@@ -1163,9 +1198,9 @@ namespace Designer
         }
         private void DeleteGroup(Group group)
         {
-            for(int i = 0; i < group.childNodes.Count; i++)
+            var degroupedNodes = new List<Node>(group.childNodes);
+            foreach(var node in degroupedNodes)
             {
-                Node node = group.childNodes[i];
                 node.SetParentGroup(null);
             }
 
@@ -1181,14 +1216,19 @@ namespace Designer
             if (activeNodes.Contains(node))
             {
                 activeNodes.Remove(node);
-                foreach (var connection in node.connections)
+                for(int i = 0; i < node.connections.Count; i++)
                 {
+                    var connection = node.connections[i];
                     DeleteConnection(connection);
                 }
             }
             else
             {
                 Debug.Log("Trying to delete non-existent node from activeNodes!");
+            }
+            if(node.parentGroup != null)
+            {
+                UngroupNode(node);
             }
         }
         #endregion
