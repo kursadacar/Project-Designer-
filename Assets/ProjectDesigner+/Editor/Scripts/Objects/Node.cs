@@ -318,10 +318,10 @@ namespace Designer
 
         private void DrawBox()
         {
-            //Draw shadow
+            //If not in a group draw shadow
             if (parentGroup == null)
             {
-                GUI.DrawTexture(shadowRect, DesignerUtility.EditorSettings.nodeTexture, ScaleMode.StretchToFill, false, 0f, DesignerUtility.EditorSettings.nodeShadowColor, 0f, 3f);
+                GUI.DrawTexture(shadowRect, DesignerUtility.EditorSettings.nodeTexture, ScaleMode.StretchToFill, false, 0f, DesignerUtility.EditorSettings.nodeShadowColor, 0f, 5f * EditorData.zoomRatio);
             }
 
             var outlineRect = new Rect(screenPosition.position - outlineOffset, screenPosition.size + outlineOffset * 2f);
